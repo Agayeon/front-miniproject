@@ -3,24 +3,27 @@
     <header><h1>Vue Fire todo1</h1></header>
     <main>
       <div class="todos">
-        <div class="write" v-if="writeState ==='add'"> <!--등록-->
+        <transition name="fade">
+        <div class="write add" v-if="writeState ==='add'" key="add"> <!--등록-->
           <input type="text"  ref="writeArea" v-model="addItemText" @keyup.enter="addItem"/>
           <button class="btn add" @click="addItem">Add</button>
         </div>
-        <div class="write" v-else> <!--수정-->
+        <div class="write edit" v-else> <!--수정-->
           <input type="text"  ref="writeArea" v-model="editItemText"
            @keyup.enter="editSave"/>
           <button class="btn add" @click="editSave">Save</button>
         </div>
-        <ul class="list">
+      </transition>
+        <ul class="list" ref="list">
           <li v-for="(item, i) in todos" :key="i">
             <i
              @click="checkItem(i)"
-             :class="[item.state === 'yet'? 'far':'fas' ,'fa-check-square']"></i>            <span>
+             :class="[item.state === 'yet'? 'far':'fas' ,'fa-check-square']"></i>            
+             <span>
               {{ item.text }}
               <b>
                 <a href="" @click.prevent="editShow(i)">Edit</a>
-                <a href="">Del</a>
+                <a href="" @click.prevent="delItem(i)">Del</a>
               </b>
             </span>
           </li>
@@ -29,10 +32,10 @@
     </main>
     </div>
 </template>
-    <!-- //할 일 목록 리스팅 -->
-    <!-- 할일 등록 가능 -->
-    <!--체크 기능-->
+
 <script>
+import {db} from '../firebase/db';
+
 export default {
     data() {
         return {
@@ -41,18 +44,23 @@ export default {
           crrEditItem: '',
           editItemText: '',
             todos:[
-            {text: '공부하기', state: 'yet'},
-            {text: '운동하기', state: 'done'},
-            {text: '글쓰기', state: 'done'},
+            // {text: '공부하기', state: 'yet'},
+            // {text: '운동하기', state: 'done'},
+            // {text: '글쓰기', state: 'done'},
+
+
             ]
         }
     },
     methods: {
       addItem () {
-        if(this.addItemText === '') return; 
-        this.todos.push({
-          text: this.addItemText, 
-          state: 'yet'});
+        if(this.addItemText === '') return;
+        db.collection('todos').add({text: this.addItemText, state: 'yet'}).then(sn => {
+          db.collection('todos').doc(sn.id).update({
+            id: sn.id
+          })
+        })
+        // this.todos.push({text: this.addItemText, state: 'yet'});
         this.addItemText = '';
       },
       checkItem(index) {
@@ -63,25 +71,41 @@ export default {
                 this.todos[index].state='yet';
             }
     },
-    del() {
-      this.writeState = 'del';
-      this.todos.splice(index, 1);
+    delItem(index) {
+      // this.todos.splice(index, 1);
+      db.collection('todos').doc(this.todos[index].id).delete()
     },
     editShow(index) {
       this.crrEditItem = index;
       this.writeState = 'edit';
       this.editItemText = this.todos[index].text;
+      this. $refs.list.children[index].className = ('editing');
     },
     editSave() {
-      this.todos[this.crrEditItem].text = this.editItemText;
+      // this.todos[this.crrEditItem].text = this.editItemText;
+      db.collection('todos')
+      .doc(this.todos[this.crrEditItem].id)
+        .update({
+          text: this.editItemText
+        })
       this.writeState = 'add';
+      this.$refs.list.children[this.crrEditItem].className = '';
       }
     },
     mounted() {
-      this.$refs.writeArea.focus();
+      db.collection('todos').get().then((result) => {
+    result.forEach((doc)=>{
+        console.log(doc.data())
+        this.todos.push(doc.data());
+    })
+});
+    },
+    firestore: {
+      todos: db.collection('todos')
     }
 }
 </script>
 
 <style>
+
 </style>
